@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RDD-Übung: Pflegegrad und Arbeitszeit</title>
+<meta name="description" content="Interaktive Übung zum Regressions-Diskontinuitäts-Design: Wirkt Pflegegrad 3 auf die Arbeitszeit pflegender Angehöriger?">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <p class="kicker">Übung · Regressions-Diskontinuitäts-Design (RDD)</p>
+  <h1>Pflegegrad 3 und die Arbeitszeit pflegender Angehöriger</h1>
+  <p class="scenario">Pflegebedürftige werden begutachtet und erhalten eine Punktzahl zwischen
+  0 und 100. Daraus folgt der Pflegegrad. Ab 47,5 Punkten gibt es Pflegegrad 3 statt
+  Pflegegrad 2 und damit höhere Leistungen der Pflegeversicherung.
+  <strong>Frage:</strong> Wie wirkt Pflegegrad 3 auf die wöchentliche Arbeitszeit der
+  Angehörigen, die die Pflege hauptsächlich übernehmen? Datensatz: 1.200 simulierte
+  Pflegehaushalte mit 27 bis unter 70 Punkten.</p>
+</header>
+
+<!-- Startseite: erscheint beim ersten Aufruf und nach "Von vorn" (16.11.2026) -->
+<section id="intro" class="intro" aria-labelledby="intro-title" hidden>
+  <h2 id="intro-title" tabindex="-1">Worum geht es?</h2>
+  <p class="lead">In dieser Übung wiederholen wir die empirischen Schritte eines
+  Regressions-Diskontinuitäts-Designs (RDD) an einem neuen Beispiel. In der Vorlesung lag die
+  Schwelle beim Alter: Ab 50 Jahren erhalten Arbeitslose länger Arbeitslosengeld. Hier liegt
+  sie bei der Punktzahl der Pflegebegutachtung. Zwei Themen gehen über die Vorlesung hinaus und
+  werden hier erklärt: scharfes und unscharfes RDD (Schritt 2) sowie die Bandbreite
+  (Schritte 6 bis 8). Die Schätzung in R führen wir gemeinsam in der Übung zur Vorlesung
+  durch; Rohdaten und R-Skript finden Sie im letzten Schritt.</p>
+
+  <div class="intro-grid">
+    <section class="intro-block" aria-labelledby="h-kontext">
+      <h3 id="h-kontext">Kontext</h3>
+      <p>Pflegebedürftige werden begutachtet und erhalten eine Punktzahl von 0 bis 100. Aus
+      der Punktzahl folgt der Pflegegrad (§&nbsp;15&nbsp;SGB&nbsp;XI). Ab 47,5 Punkten gibt es
+      Pflegegrad 3 statt Pflegegrad 2 und damit höhere Leistungen der Pflegeversicherung, zum
+      Beispiel mehr Pflegegeld.</p>
+      <p>Viele Pflegebedürftige werden von Angehörigen gepflegt, die zugleich erwerbstätig
+      sind. Höhere Leistungen können sie entlasten, sie können es ihnen aber auch erleichtern,
+      weniger zu arbeiten. Welche Richtung überwiegt, ist eine empirische Frage.</p>
+      <p><strong>Frage:</strong> Wie wirkt Pflegegrad 3 auf die wöchentliche Arbeitszeit der
+      Angehörigen, die die Pflege hauptsächlich übernehmen?</p>
+    </section>
+
+    <section class="intro-block" aria-labelledby="h-daten">
+      <h3 id="h-daten">Daten</h3>
+      <p>1.200 simulierte Pflegehaushalte mit 27 bis unter 70 Punkten, also mit Pflegegrad 2
+      oder 3. Je Haushalt:</p>
+      <table class="vars">
+        <thead><tr><th scope="col">Merkmal</th><th scope="col">Rolle im RDD</th></tr></thead>
+        <tbody>
+          <tr><td>Punktzahl der Begutachtung&nbsp;<code>x</code></td><td>Laufvariable</td></tr>
+          <tr><td>Pflegegrad 3: ja (1) oder nein (0)&nbsp;<code>d</code></td><td>Behandlung</td></tr>
+          <tr><td>Wochenarbeitsstunden der Hauptpflegeperson&nbsp;<code>y</code></td><td>Ergebnis</td></tr>
+          <tr><td>Alter der Pflegeperson&nbsp;<code>w</code></td><td>Placebo-Test</td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Weil die Daten simuliert sind, ist der wahre Effekt bekannt. Sie
+      erfahren ihn im letzten Schritt und können Ihre Schätzung damit vergleichen.</p>
+    </section>
+
+    <section class="intro-block" aria-labelledby="h-ziele">
+      <h3 id="h-ziele">Lernziele</h3>
+      <p>Nach der Übung können Sie …</p>
+      <ol class="goals">
+        <li>Laufvariable, Schwelle und Behandlung benennen und scharfes von unscharfem RDD
+          unterscheiden <span class="muted">(Schritte 1 und 2)</span>,</li>
+        <li>erklären, warum der naive Gruppenvergleich keine kausale Wirkung misst
+          <span class="muted">(Schritte 3 bis 5)</span>,</li>
+        <li>den Sprung an der Schwelle schätzen und die Wahl der Bandbreite begründen
+          <span class="muted">(Schritte 6 bis 8)</span>,</li>
+        <li>die Identifikationsannahme mit einem Manipulations- und einem Placebo-Test
+          plausibilisieren <span class="muted">(Schritte 9 und 10)</span>,</li>
+        <li>die Schätzung als lokalen Effekt an der Schwelle interpretieren
+          <span class="muted">(Schritt 11)</span>.</li>
+      </ol>
+    </section>
+  </div>
+
+  <div class="intro-foot">
+    <p class="muted">11 Schritte, etwa 10 bis 15 Minuten. Sie benötigen keine Software. Ihr
+    Fortschritt bleibt in diesem Browser gespeichert.</p>
+    <button id="btn-start" type="button" class="primary">Übung starten</button>
+  </div>
+</section>
+
+<main class="layout">
+  <section class="panel" aria-labelledby="step-title">
+    <div class="progress">
+      <div class="progress-top">
+        <span id="progress-label" class="progress-label"></span>
+      </div>
+      <div class="progress-bar" aria-hidden="true"><div id="progress-fill"></div></div>
+    </div>
+    <h2 id="step-title"></h2>
+    <div id="prompt" class="prompt"></div>
+    <div id="answer" class="answer"></div>
+    <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+    <div id="hint" class="hint" hidden></div>
+    <div class="buttons">
+      <div class="btn-group">
+        <button id="btn-back" type="button" class="secondary">Zurück</button>
+        <button id="btn-reset" type="button" class="secondary">Von vorn</button>
+      </div>
+      <div class="btn-group btn-group-main">
+        <button id="btn-solution" type="button" class="secondary" hidden>Lösung anzeigen</button>
+        <button id="btn-main" type="button" class="primary">Prüfen</button>
+      </div>
+    </div>
+
+    <!-- Kasten "Selbst nachrechnen": nur im letzten Schritt (16.11.2026) -->
+    <div id="selfrun" class="selfrun" hidden>
+      <h3>Selbst nachrechnen in R</h3>
+      <p><strong>In der Übung zur Vorlesung führen wir dieses R-Skript gemeinsam aus.</strong>
+      Mit den Rohdaten und dem kommentierten Skript rechnen Sie alle elf Schritte selbst nach.
+      Sie können es auch vorher schon allein ausprobieren.</p>
+      <div class="dl-row">
+        <a class="dl" href="data.csv" download>Rohdaten (CSV)</a>
+        <a class="dl" href="rdd_pflegegrad.R" download>R-Skript</a>
+      </div>
+      <p class="sub">R und RStudio</p>
+      <p>R ist eine kostenlose Software für Statistik. RStudio ist eine ebenfalls kostenlose
+      Arbeitsoberfläche dafür, in der Sie Skripte öffnen und ausführen. Installieren Sie zuerst
+      R, dann RStudio Desktop:</p>
+      <ul>
+        <li>R: <a href="https://cran.r-project.org/" target="_blank" rel="noopener">cran.r-project.org</a></li>
+        <li>RStudio Desktop: <a href="https://posit.co/download/rstudio-desktop/" target="_blank" rel="noopener">posit.co/download/rstudio-desktop</a></li>
+      </ul>
+      <p class="sub">So führen Sie das Skript aus</p>
+      <ol>
+        <li>Rohdaten und Skript in denselben Ordner speichern.</li>
+        <li>Skript in RStudio öffnen: File &gt; Open File.</li>
+        <li>Arbeitsverzeichnis auf diesen Ordner setzen: Session &gt; Set Working Directory &gt;
+          To Source File Location.</li>
+        <li>Zeilen einzeln mit Strg+Enter (Mac: Cmd+Enter) ausführen oder alles auf einmal mit
+          dem Knopf „Source“.</li>
+      </ol>
+      <p class="muted">Beim ersten Mal installiert das Skript das Paket <code>rdrobust</code>;
+      dafür ist eine Internetverbindung nötig. Findet das Skript die Datei
+      <code>data.csv</code> nicht, lädt es die Daten von dieser Seite.</p>
+    </div>
+  </section>
+
+  <section class="figure" aria-label="Grafik">
+    <svg id="chart" viewBox="0 0 600 420" role="img" aria-label="Grafik zum aktuellen Schritt"></svg>
+    <div id="controls" class="controls"></div>
+    <p id="chart-note" class="chart-note"></p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Simulierte Daten, stilisiert nach §&nbsp;15&nbsp;SGB&nbsp;XI. Die Übung dient dem Selbststudium.
+  Keine Cookies, keine externen Dienste.</p>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
